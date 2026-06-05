@@ -5,12 +5,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // 1. App Configuration Matrix
 // ==========================================
 const CONFIG = {
-    // TIP: For 100% reliable loading on both Localhost and GitHub Pages, 
-    // fill in your GitHub details here. Leave blank to rely on auto-detection.
+    // Fill in your GitHub details to bypass auto-detection, ensuring it works on localhost too
     githubOwner: "SkyPlay-Code", 
     githubRepo: "manhwa",
     
-    // Offline / Local development fallback data (used if API fails or when running offline)
+    // Offline / Local fallback data
     fallbackData: [
         {
             id: "the-crows-prince",
@@ -18,20 +17,6 @@ const CONFIG = {
             folder: "The_Crow's_Prince",
             description: "A young woman undergoes a surreal transition after an unexpected death, waking up in the body of a humble crow in a fantasy realm where empires and magic collide.",
             chapters: ["Chapter_001.pdf", "Chapter_002.pdf", "Chapter_003.pdf"]
-        },
-        {
-            id: "the-empresses-two-wolves",
-            title: "The Empresses Two Wolves",
-            folder: "The_Empresses_Two_Wolves",
-            description: "An elegant court story rich with intrigue and powerful shape-shifting guardians. Follow the delicate alliance formed to protect the throne.",
-            chapters: ["Chapter_001.pdf", "Chapter_002.pdf", "Chapter_003.pdf"]
-        },
-        {
-            id: "the-price-of-a-broken-engagement",
-            title: "The Price of a Broken Engagement",
-            folder: "The_Price_of_a_Broken_Engagement",
-            description: "Betrayal forces a proud noblewoman to rewrite her destiny. A tale of absolute resolve, romance, and demanding payment for a shattered vow.",
-            chapters: ["Chapter_000.pdf", "Chapter_001.pdf", "Chapter_002.pdf", "Chapter_003.pdf"]
         }
     ]
 };
@@ -41,6 +26,7 @@ const CONFIG = {
 // ==========================================
 const state = {
     currentView: 'home',
+    currentBranch: 'master',
     manhwas: [], 
     activeManhwa: null,
     activeChapterIndex: 0,
@@ -50,11 +36,11 @@ const state = {
     favorites: JSON.parse(localStorage.getItem('starlight_favorites')) || [],
     history: JSON.parse(localStorage.getItem('starlight_history')) || {},
     settings: JSON.parse(localStorage.getItem('starlight_settings')) || {
-        mode: 'scroll',       
-        filter: 'default',    
-        width: 'medium',      
-        gap: 'none',          
-        quality: 'medium'     
+        mode: 'scroll',       // scroll (continuous) vs paged (single page slide)
+        filter: 'default',    // default, dimmed, sepia, warm, invert
+        width: 'medium',      // narrow, medium, wide
+        gap: 'none',          // none, small, medium, large
+        quality: 'medium'     // low, medium, high
     }
 };
 
@@ -95,7 +81,7 @@ const elements = {
 };
 
 // ==========================================
-// 3. GitHub API Directory Scraping Layer
+// 3. GitHub Pages Repository Discovery
 // ==========================================
 function getRepoDetails() {
     if (CONFIG.githubOwner && CONFIG.githubRepo) {
@@ -111,87 +97,100 @@ function getRepoDetails() {
     return null;
 }
 
-// Memory-saving local storage fetch wrapper
-async function fetchCachedAPI(url) {
-    const cacheKey = `starlight_api_${url}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < 300000) { // 5-minute Cache TTL
-            return parsed.data;
-        }
-    }
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    const data = await res.json();
-    localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-    return data;
-}
-
-// Convert folder name to Title
+// Convert folder names with underscores to clean display titles
 function formatTitle(name) {
     return name.replace(/_/g, ' ').replace(/-/g, ' ');
 }
 
-// Robust, native alphabetical/numerical natural sorting
+// Natively fast natural alphabetical/numerical collator (sorts 00, 2.5, 10 in correct reading order)
 function naturalSort(array, getVal = (v) => v) {
     return array.sort((a, b) => {
         return getVal(a).localeCompare(getVal(b), undefined, { numeric: true, sensitivity: 'base' });
     });
 }
 
+// ==========================================
+// 4. Ultra-Fast CDN Directory Scraping Engine
+// ==========================================
 async function loadDynamicLibrary() {
-    showLoading("Parsing repository folders...");
+    showLoading("Scanning repository folders...");
     const repoInfo = getRepoDetails();
     
     if (!repoInfo) {
-        console.warn("Not hosted on GitHub Pages and CONFIG is empty. Using local fallback.");
+        console.warn("Using offline fallback mode.");
         state.manhwas = CONFIG.fallbackData;
         hideLoading();
         return;
     }
 
     try {
-        const apiRoot = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/contents/`;
-        const rootItems = await fetchCachedAPI(apiRoot);
-        const folders = rootItems.filter(item => item.type === 'dir' && !item.name.startsWith('.') && !['css', 'js', 'images', 'assets'].includes(item.name));
+        let response;
+        let branch = "master";
+        
+        // Attempt to fetch the file tree from master branch, fallback to main if master fails
+        try {
+            response = await fetch(`https://data.jsdelivr.net/v1/packages/gh/${repoInfo.owner}/${repoInfo.repo}@master?structure=flat`);
+            if (!response.ok) throw new Error("master failed");
+            state.currentBranch = "master";
+        } catch(e) {
+            branch = "main";
+            response = await fetch(`https://data.jsdelivr.net/v1/packages/gh/${repoInfo.owner}/${repoInfo.repo}@main?structure=flat`);
+            state.currentBranch = "main";
+        }
 
-        const scrapedLibrary = [];
-        for (const f of folders) {
-            const folderApi = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/contents/${f.path}`;
-            const folderItems = await fetchCachedAPI(folderApi);
-            
-            // Collect PDFs and sort them naturally
-            const pdfFiles = folderItems.filter(item => item.name.endsWith('.pdf'));
-            if (pdfFiles.length === 0) continue;
-            
-            const sortedPDFs = naturalSort(pdfFiles, (x) => x.name).map(x => x.name);
+        if (!response.ok) {
+            throw new Error(`Failed to load repository tree from master/main.`);
+        }
 
-            // Fetch metadata file if it exists, otherwise generate fallback
-            let desc = "No description provided.";
-            let title = formatTitle(f.name);
-            const metadataFile = folderItems.find(item => item.name.toLowerCase() === 'metadata.json');
-            if (metadataFile) {
-                try {
-                    const metaData = await (await fetch(metadataFile.download_url)).json();
-                    if (metaData.description) desc = metaData.description;
-                    if (metaData.title) title = metaData.title;
-                } catch(e) {
-                    console.warn("Metadata load failed for", f.name);
+        const data = await response.json();
+        const files = data.files || [];
+        const manhwaMap = {};
+
+        // Parse flat file paths into directories and chapters in a single loop
+        files.forEach(file => {
+            const path = file.name.replace(/^\//, ''); // Clean leading slash
+            const parts = path.split('/');
+            
+            // Files nested inside a root folder (e.g. FolderName/Chapter.pdf)
+            if (parts.length === 2) {
+                const folderName = parts[0];
+                const fileName = parts[1];
+
+                // Exclude system directories
+                if (['css', 'js', 'images', 'assets', '.github'].includes(folderName)) {
+                    return;
+                }
+
+                if (!manhwaMap[folderName]) {
+                    manhwaMap[folderName] = {
+                        id: folderName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                        title: formatTitle(folderName),
+                        folder: folderName,
+                        description: `Chapters inside the "${formatTitle(folderName)}" folder. Read PDFs dynamically directly from your repository.`,
+                        chapters: [],
+                        hasMetadata: false
+                    };
+                }
+
+                if (fileName.toLowerCase().endsWith('.pdf')) {
+                    manhwaMap[folderName].chapters.push(fileName);
+                } else if (fileName.toLowerCase() === 'metadata.json') {
+                    manhwaMap[folderName].hasMetadata = true;
                 }
             }
+        });
 
-            scrapedLibrary.push({
-                id: f.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-                title: title,
-                folder: f.path,
-                description: desc,
-                chapters: sortedPDFs
-            });
-        }
-        state.manhwas = scrapedLibrary;
+        // Convert mapped directories to list array and sort naturally
+        const scrapedLibrary = Object.values(manhwaMap).filter(m => m.chapters.length > 0);
+        scrapedLibrary.forEach(manhwa => {
+            manhwa.chapters = naturalSort(manhwa.chapters);
+        });
+
+        // Sort overall series list alphabetically
+        state.manhwas = naturalSort(scrapedLibrary, (m) => m.title);
+
     } catch(err) {
-        console.error("Failed parsing GitHub repo structure. Using fallback.", err);
+        console.error("Scraping failed, using fallback.", err);
         state.manhwas = CONFIG.fallbackData;
     } finally {
         hideLoading();
@@ -199,7 +198,7 @@ async function loadDynamicLibrary() {
 }
 
 // ==========================================
-// 4. Page Cover Extraction Engine
+// 5. Page Cover Extraction Engine
 // ==========================================
 async function tryGenerateCover(manhwa, callback) {
     const cacheKey = `starlight_cov_${manhwa.id}`;
@@ -213,7 +212,6 @@ async function tryGenerateCover(manhwa, callback) {
         const targetChapter = manhwa.chapters[0];
         const docPath = `${manhwa.folder}/${targetChapter}`;
         
-        // encodeURI handles directory paths containing special characters safely
         const loadingTask = pdfjsLib.getDocument(encodeURI(docPath));
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
@@ -237,7 +235,7 @@ async function tryGenerateCover(manhwa, callback) {
 }
 
 // ==========================================
-// 5. Library Rendering Engines
+// 6. Library Rendering Engines
 // ==========================================
 function renderHomeGrid() {
     elements.manhwaGrid.innerHTML = '';
@@ -245,7 +243,7 @@ function renderHomeGrid() {
     
     let hasFavorites = false;
 
-    if (!state.manhwas) {
+    if (!state.manhwas || state.manhwas.length === 0) {
         state.manhwas = CONFIG.fallbackData;
     }
 
@@ -291,7 +289,6 @@ function renderHomeGrid() {
             loadDetailsView(m);
         });
 
-        // Lazy-render PDF cover frame
         tryGenerateCover(m, (dataUrl) => {
             const holder = document.getElementById(`cover-bin-${m.id}`);
             if (holder && dataUrl) {
@@ -324,7 +321,7 @@ function toggleFavorite(id) {
     renderHomeGrid();
 }
 
-function loadDetailsView(manhwa) {
+async function loadDetailsView(manhwa) {
     state.activeManhwa = manhwa;
     elements.detailTitle.textContent = manhwa.title;
     elements.detailDesc.textContent = manhwa.description;
@@ -339,6 +336,27 @@ function loadDetailsView(manhwa) {
             elements.detailCover.innerHTML = `<img src="${dataUrl}" alt="cover">`;
         }
     });
+
+    // Lazy load metadata.json for this specific series only when opened
+    if (manhwa.hasMetadata) {
+        try {
+            const metaPath = `${manhwa.folder}/metadata.json`;
+            const metaRes = await fetch(encodeURI(metaPath));
+            if (metaRes.ok) {
+                const metaData = await metaRes.json();
+                if (metaData.title) {
+                    manhwa.title = metaData.title;
+                    elements.detailTitle.textContent = metaData.title;
+                }
+                if (metaData.description) {
+                    manhwa.description = metaData.description;
+                    elements.detailDesc.textContent = metaData.description;
+                }
+            }
+        } catch(e) {
+            console.warn("Lazy load metadata failed", e);
+        }
+    }
 
     const record = state.history[manhwa.id];
     if (record && record.chapterIndex < manhwa.chapters.length) {
@@ -372,7 +390,7 @@ function loadDetailsView(manhwa) {
 }
 
 // ==========================================
-// 6. Reader Engine
+// 7. Reader Engine
 // ==========================================
 async function openReader(chapterIdx, pageNumToLoad = 1) {
     if (!state.activeManhwa) return;
@@ -477,12 +495,12 @@ function getEstimateWidth() {
 }
 
 // ==========================================
-// 7. Virtual Canvas Recycler
+// 8. Virtual Canvas Recycler (Performance Tuning)
 // ==========================================
 function initLazyRecycler(pdf) {
     const options = {
         root: null,
-        rootMargin: '600px 0px 600px 0px', 
+        rootMargin: '1200px 0px 1200px 0px', // Preloads up to 1.5 screens ahead for seamless scrolling
         threshold: 0.01
     };
 
@@ -511,14 +529,14 @@ async function renderPageCanvas(pdf, pageNum, container) {
         const page = await pdf.getPage(pageNum);
         const qualityLevel = state.settings.quality;
         
-        let multiplier = window.devicePixelRatio || 1;
-        if (qualityLevel === 'low') multiplier = 0.8;
-        if (qualityLevel === 'medium') multiplier = 1.3;
-        if (qualityLevel === 'high') multiplier = 2.0;
+        // Use crisp absolute scales instead of device ratios to prevent huge slow-to-render canvases
+        let targetScaleFactor = 1.4; // default medium
+        if (qualityLevel === 'low') targetScaleFactor = 0.95;
+        if (qualityLevel === 'high') targetScaleFactor = 2.0;
 
         const baseViewport = page.getViewport({ scale: 1.0 });
         const realWidth = container.clientWidth || 800;
-        const targetScale = (realWidth / baseViewport.width) * multiplier;
+        const targetScale = (realWidth / baseViewport.width) * targetScaleFactor;
         const viewport = page.getViewport({ scale: targetScale });
 
         const canvas = document.createElement('canvas');
@@ -595,7 +613,7 @@ function setupActivePageScrollTracker() {
 }
 
 // ==========================================
-// 8. Progress and UI Configuration Controls
+// 9. Progress and UI Configuration Controls
 // ==========================================
 function saveProgress(chapIdx, pageNum) {
     if (!state.activeManhwa) return;
@@ -646,7 +664,7 @@ function applyRenderingSettings() {
 }
 
 // ==========================================
-// 9. Interactive Settings Handlers
+// 10. Interactive Settings Handlers
 // ==========================================
 function setupDrawerButtons() {
     const mapSetting = (groupId, stateKey) => {
@@ -733,7 +751,7 @@ function hideLoading() {
 }
 
 // ==========================================
-// 10. Initialization Bootstrapping
+// 11. Initialization Bootstrapping
 // ==========================================
 function initEvents() {
     elements.navLogo.addEventListener('click', () => {
