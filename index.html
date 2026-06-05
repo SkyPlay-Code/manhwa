@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starlight Manhwa Reader</title>
+    <!-- CSS Link -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body class="dark-theme">
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo-group" id="nav-logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">STARLIGHT</span>
+            </div>
+            <nav class="nav-links">
+                <button class="nav-btn active" id="btn-home">Home</button>
+                <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle Theme">
+                    <span class="theme-icon"></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Containers -->
+    <main class="main-content">
+        
+        <!-- View 1: Home Dashboard -->
+        <section id="home-view" class="view">
+            <div class="hero-section">
+                <h1>Your Personal Library</h1>
+                <p>Select a story to begin reading high-resolution chapters.</p>
+            </div>
+            <div class="manhwa-grid" id="manhwa-grid">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </section>
+
+        <!-- View 2: Manhwa Detail Page -->
+        <section id="details-view" class="view hidden">
+            <div class="back-nav">
+                <button class="btn-text" id="details-back-btn">&larr; Back to Library</button>
+            </div>
+            <div class="detail-container">
+                <div class="detail-header">
+                    <div class="detail-cover-wrapper">
+                        <div class="detail-cover-placeholder" id="detail-cover"></div>
+                    </div>
+                    <div class="detail-info">
+                        <h2 id="detail-title"></h2>
+                        <p class="detail-desc" id="detail-description"></p>
+                    </div>
+                </div>
+                <div class="chapter-list-section">
+                    <h3>Chapters</h3>
+                    <div class="chapter-grid" id="chapter-grid">
+                        <!-- Dynamically populated via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 3: Reader Panel -->
+        <section id="reader-view" class="view hidden">
+            <!-- Top Control Bar (Sticky) -->
+            <div class="reader-controls">
+                <div class="controls-left">
+                    <button class="control-btn" id="reader-back-btn" title="Back to Details">
+                        &larr; <span class="btn-label">Back</span>
+                    </button>
+                </div>
+                <div class="controls-center">
+                    <span class="reader-title-display" id="reader-title-display">Title</span>
+                    <select id="reader-chapter-select" class="chapter-dropdown">
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+                <div class="controls-right">
+                    <div class="width-controls">
+                        <button class="width-btn" data-width="narrow" title="Narrow Layout">N</button>
+                        <button class="width-btn active" data-width="medium" title="Medium Layout">M</button>
+                        <button class="width-btn" data-width="wide" title="Wide Layout">W</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manhwa Render Strip -->
+            <div class="reader-scroll-container" id="reader-scroll-container">
+                <div class="reader-render-area width-medium" id="reader-render-area">
+                    <!-- PDF Canvas pages will lazy load here -->
+                </div>
+            </div>
+
+            <!-- Bottom Navigation Bar -->
+            <div class="reader-footer-nav">
+                <button class="nav-arrow-btn" id="prev-chap-btn">&larr; Previous Chapter</button>
+                <button class="nav-arrow-btn" id="next-chap-btn">Next Chapter &rarr;</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Global Loading Spinner Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Loading Pages...</p>
+    </div>
+
+    <!-- JS Link -->
+    <script src="app.js"></script>
+</body>
+</html>
