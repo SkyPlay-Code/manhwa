@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starlight Manhwa Reader</title>
-    <!-- CSS Link -->
+    <title>Starlight Reader</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Google Fonts -->
+    
+    <!-- Modern typography matrices -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- PDF.js Library -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- High-speed PDFJS Core Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body class="dark-theme">
 
-    <!-- Global Navigation -->
+    <!-- Global Header Menu -->
     <header class="navbar">
         <div class="nav-container">
             <div class="logo-group" id="nav-logo">
@@ -23,7 +24,7 @@
                 <span class="logo-text">STARLIGHT</span>
             </div>
             <nav class="nav-links">
-                <button class="nav-btn active" id="btn-home">Home</button>
+                <button class="nav-btn active" id="btn-home">Library</button>
                 <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle Theme">
                     <span class="theme-icon"></span>
                 </button>
@@ -31,77 +32,131 @@
         </div>
     </header>
 
-    <!-- Main Content Containers -->
     <main class="main-content">
         
-        <!-- View 1: Home Dashboard -->
+        <!-- View 1: Home Dashboard Library -->
         <section id="home-view" class="view">
-            <div class="hero-section">
-                <h1>Your Personal Library</h1>
-                <p>Select a story to begin reading high-resolution chapters.</p>
+            <!-- shelf for bookmarked/pinned manhwas -->
+            <div id="favorites-section" class="dashboard-section hidden">
+                <h3 class="section-title">Starred Releases</h3>
+                <div class="manhwa-grid" id="favorites-grid"></div>
             </div>
-            <div class="manhwa-grid" id="manhwa-grid">
-                <!-- Dynamically populated via JS -->
+
+            <div class="dashboard-section">
+                <h3 class="section-title">All Series</h3>
+                <div class="manhwa-grid" id="manhwa-grid"></div>
             </div>
         </section>
 
-        <!-- View 2: Manhwa Detail Page -->
+        <!-- View 2: Detailed Index View -->
         <section id="details-view" class="view hidden">
             <div class="back-nav">
-                <button class="btn-text" id="details-back-btn">&larr; Back to Library</button>
+                <button class="btn-back" id="details-back-btn">&larr; Back to Library</button>
             </div>
             <div class="detail-container">
-                <div class="detail-header">
-                    <div class="detail-cover-wrapper">
-                        <div class="detail-cover-placeholder" id="detail-cover"></div>
-                    </div>
+                <div class="detail-header-block">
+                    <div class="detail-cover-wrapper" id="detail-cover"></div>
                     <div class="detail-info">
-                        <h2 id="detail-title"></h2>
+                        <div class="detail-title-row">
+                            <h2 id="detail-title">Series Name</h2>
+                            <button id="detail-fav-btn" class="btn-star" style="font-size: 1.5rem;" title="Favorite">&#9734;</button>
+                        </div>
                         <p class="detail-desc" id="detail-description"></p>
+                        <button class="btn-primary" id="btn-continue-reading">
+                            <span>Continue Reading</span>
+                        </button>
                     </div>
                 </div>
-                <div class="chapter-list-section">
-                    <h3>Chapters</h3>
-                    <div class="chapter-grid" id="chapter-grid">
-                        <!-- Dynamically populated via JS -->
-                    </div>
+
+                <div class="chapter-table-wrapper">
+                    <div class="chapter-table-header">Chapter Index</div>
+                    <div class="chapter-list-rigid" id="chapter-grid"></div>
                 </div>
             </div>
         </section>
 
-        <!-- View 3: Reader Panel -->
+        <!-- View 3: Advanced Reader View -->
         <section id="reader-view" class="view hidden">
-            <!-- Top Control Bar (Sticky) -->
+            <!-- Reader sticky controls -->
             <div class="reader-controls">
                 <div class="controls-left">
-                    <button class="control-btn" id="reader-back-btn" title="Back to Details">
-                        &larr; <span class="btn-label">Back</span>
-                    </button>
+                    <button class="control-icon-btn" id="reader-back-btn" title="Exit to Details">&larr;</button>
                 </div>
+                
                 <div class="controls-center">
                     <span class="reader-title-display" id="reader-title-display">Title</span>
-                    <select id="reader-chapter-select" class="chapter-dropdown">
-                        <!-- Populated via JS -->
-                    </select>
+                    <select id="reader-chapter-select" class="chapter-dropdown"></select>
                 </div>
+
                 <div class="controls-right">
-                    <div class="width-controls">
-                        <button class="width-btn" data-width="narrow" title="Narrow Layout">N</button>
-                        <button class="width-btn active" data-width="medium" title="Medium Layout">M</button>
-                        <button class="width-btn" data-width="wide" title="Wide Layout">W</button>
+                    <button class="control-icon-btn" id="btn-toggle-settings" title="Display Options">&#9881;</button>
+                </div>
+            </div>
+
+            <!-- Settings Drawer Overlay inside reading view -->
+            <div class="reader-settings-drawer hidden" id="reader-settings-drawer">
+                <div class="setting-group">
+                    <span class="setting-label">Reading Mode</span>
+                    <div class="settings-btn-group" id="setting-mode">
+                        <button class="settings-option active" data-value="scroll">Continuous</button>
+                        <button class="settings-option" data-value="paged">Paged View</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">Visual Filter</span>
+                    <div class="settings-btn-group" id="setting-filter">
+                        <button class="settings-option active" data-value="default">Default</button>
+                        <button class="settings-option" data-value="dimmed">Dimmed</button>
+                        <button class="settings-option" data-value="sepia">Sepia</button>
+                        <button class="settings-option" data-value="warm">Warm</button>
+                        <button class="settings-option" data-value="invert">Night</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">Viewer Width</span>
+                    <div class="settings-btn-group" id="setting-width">
+                        <button class="settings-option" data-value="narrow">Narrow</button>
+                        <button class="settings-option active" data-value="medium">Medium</button>
+                        <button class="settings-option" data-value="wide">Wide</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">Strip Gap</span>
+                    <div class="settings-btn-group" id="setting-gap">
+                        <button class="settings-option active" data-value="none">None</button>
+                        <button class="settings-option" data-value="small">Small</button>
+                        <button class="settings-option" data-value="medium">Mid</button>
+                        <button class="settings-option" data-value="large">Wide</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">Render Quality</span>
+                    <div class="settings-btn-group" id="setting-quality">
+                        <button class="settings-option" data-value="low">Low</button>
+                        <button class="settings-option active" data-value="medium">Mid</button>
+                        <button class="settings-option" data-value="high">High</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Manhwa Render Strip -->
+            <!-- The Scroll Canvas Container -->
             <div class="reader-scroll-container" id="reader-scroll-container">
-                <div class="reader-render-area width-medium" id="reader-render-area">
-                    <!-- PDF Canvas pages will lazy load here -->
-                </div>
+                <div class="reader-render-area width-medium gap-none" id="reader-render-area"></div>
             </div>
 
-            <!-- Bottom Navigation Bar -->
-            <div class="reader-footer-nav">
+            <!-- Floating page selector indicators for deep reading -->
+            <div class="page-floating-nav" id="page-floating-nav">
+                <span>Page</span>
+                <select class="page-jump-select" id="page-jump-select"></select>
+                <span id="page-floating-max">/ 0</span>
+            </div>
+
+            <!-- Global Footer arrows inside reading view -->
+            <div class="reader-footer-nav" id="reader-footer-nav">
                 <button class="nav-arrow-btn" id="prev-chap-btn">&larr; Previous Chapter</button>
                 <button class="nav-arrow-btn" id="next-chap-btn">Next Chapter &rarr;</button>
             </div>
@@ -109,13 +164,13 @@
 
     </main>
 
-    <!-- Global Loading Spinner Overlay -->
+    <!-- Global Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">
         <div class="spinner"></div>
-        <p id="loading-text">Loading Pages...</p>
+        <p id="loading-text">Parsing repository...</p>
     </div>
 
-    <!-- JS Link -->
+    <!-- Core App Controller -->
     <script src="app.js"></script>
 </body>
 </html>
